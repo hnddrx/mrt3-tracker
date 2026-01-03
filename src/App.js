@@ -15,7 +15,12 @@ export default function MRT3Tracker() {
   const [destination, setDestination] = useState(null);
   const [notification, setNotification] = useState('');
   const [isMapOpen, setIsMapOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  
+  // --- SYSTEM THEME DARKMODE ---
+  const [isDarkMode, setIsDarkMode] = useState(() =>
+    window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
 
   const {
     userLocation,
@@ -28,22 +33,31 @@ export default function MRT3Tracker() {
 
   const theme = getTheme(isDarkMode);
 
-  // --- NEW: show "Acquiring GPS location..." while waiting for first station
+  // --- AUTO NOTIFICATION WHEN WAITING FOR GPS ---
   useEffect(() => {
     if (isTracking && !gpsCurrentStation) {
       setNotification('Acquiring GPS location...');
     }
   }, [isTracking, gpsCurrentStation]);
 
-  // Existing: show notification when arriving at a station
+  // --- SHOW ARRIVAL NOTIFICATIONS ---
   useEffect(() => {
     if (gpsCurrentStation) {
       setNotification(`Arrived at ${gpsCurrentStation.name}`);
     }
   }, [gpsCurrentStation]);
 
+  // --- UPDATE DARKMODE IF SYSTEM CHANGES ---
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => setIsDarkMode(e.matches);
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   return (
-    <div className={`min-h-screen ${theme.bg} ${theme.text}`}>
+    <div className={`min-h-screen ${theme.bg} ${theme.text} transition-colors duration-300`}>
       <div className="max-w-7xl mx-auto p-6">
 
         <Header
