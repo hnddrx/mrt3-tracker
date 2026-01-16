@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { MRT3_STATIONS } from '../data/mrt3Stations';
 
 const useGPSTracking = (destination) => {
@@ -9,9 +9,7 @@ const useGPSTracking = (destination) => {
   const [gpsNextStation, setGpsNextStation] = useState(null);
   const [gpsProgress, setGpsProgress] = useState(0);
 
-  console.log("useGPSTracking Hook Called with destination:", destination);
-
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const calculateDistance = useCallback((lat1, lon1, lat2, lon2) => {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -21,9 +19,9 @@ const useGPSTracking = (destination) => {
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
-  };
+  }, []);
 
-  const findNearestStation = (lat, lng) => {
+  const findNearestStation = useCallback((lat, lng) => {
     let nearest = null;
     let minDistance = Infinity;
 
@@ -36,29 +34,37 @@ const useGPSTracking = (destination) => {
     });
 
     return { station: nearest, distance: minDistance };
-  };
+  }, [calculateDistance]);
 
-  const determineNextStation = (currentStationId, destinationId) => {
+  const determineNextStation = useCallback((currentStationId, destinationId) => {
     if (!currentStationId || !destinationId) return null;
 
     const currentIndex = MRT3_STATIONS.findIndex(s => s.id === currentStationId);
     const destIndex = MRT3_STATIONS.findIndex(s => s.id === destinationId);
 
     if (currentIndex === -1 || destIndex === -1) return null;
-    
-    // If already at destination
     if (currentIndex === destIndex) return null;
 
-    // Determine direction and return next station
     if (currentIndex < destIndex) {
-      // Moving forward in the array
       return MRT3_STATIONS[currentIndex + 1];
     } else {
-      // Moving backward in the array
       return MRT3_STATIONS[currentIndex - 1];
     }
-  };
+  }, []);
 
+  // Update next station when current station or destination changes
+  useEffect(() => {
+    if (gpsCurrentStation && destination) {
+      const nextStation = determineNextStation(gpsCurrentStation.id, destination.id);
+      setGpsNextStation(nextStation);
+      setGpsProgress(0);
+    } else {
+      setGpsNextStation(null);
+      setGpsProgress(0);
+    }
+  }, [gpsCurrentStation, destination, determineNextStation]);
+
+  // GPS tracking effect
   useEffect(() => {
     if (!('geolocation' in navigator)) {
       setLocationError('Geolocation is not supported by your browser');
@@ -69,52 +75,46 @@ const useGPSTracking = (destination) => {
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        console.log('GPS Position Update:', position);
         const { latitude, longitude } = position.coords;
         setUserLocation({ lat: latitude, lng: longitude });
         
         const { station, distance } = findNearestStation(latitude, longitude);
-        console.log('Nearest Station Found:', station?.name, 'at distance:', distance.toFixed(2), 'km');
         
         // Update current station if within 0.5km
         if (distance < 0.5) {
-          if (!gpsCurrentStation || gpsCurrentStation.id !== station.id) {
-            console.log('Updating current station to:', station.name);
-            setGpsCurrentStation(station);
-          }
+          setGpsCurrentStation(prevStation => {
+            if (!prevStation || prevStation.id !== station.id) {
+              return station;
+            }
+            return prevStation;
+          });
         }
         
         // Calculate progress between current and next station
-        if (gpsCurrentStation && gpsNextStation) {
-          const distToCurrent = calculateDistance(
-            latitude, 
-            longitude, 
-            gpsCurrentStation.lat, 
-            gpsCurrentStation.lng
-          );
-         /*  const distToNext = calculateDistance(
-            latitude, 
-            longitude, 
-            gpsNextStation.lat, 
-            gpsNextStation.lng
-          ); */
-          const totalDist = calculateDistance(
-            gpsCurrentStation.lat, 
-            gpsCurrentStation.lng, 
-            gpsNextStation.lat, 
-            gpsNextStation.lng
-          );
-          
-          // Progress is how far from current station relative to total distance
-          const progressPercent = (distToCurrent / totalDist) * 100;
-          setGpsProgress(Math.min(Math.max(progressPercent, 0), 100));
-        }
+        setGpsProgress(prevProgress => {
+          if (gpsCurrentStation && gpsNextStation) {
+            const distToCurrent = calculateDistance(
+              latitude, 
+              longitude, 
+              gpsCurrentStation.lat, 
+              gpsCurrentStation.lng
+            );
+            const totalDist = calculateDistance(
+              gpsCurrentStation.lat, 
+              gpsCurrentStation.lng, 
+              gpsNextStation.lat, 
+              gpsNextStation.lng
+            );
+            
+            const progressPercent = (distToCurrent / totalDist) * 100;
+            return Math.min(Math.max(progressPercent, 0), 100);
+          }
+          return prevProgress;
+        });
         
         setLocationError('');
-
       },
       (error) => {
-        console.error('GPS Error:', error);
         setLocationError(`GPS Error: ${error.message}`);
         setIsTracking(false);
       },
@@ -126,23 +126,9 @@ const useGPSTracking = (destination) => {
     );
 
     return () => {
-      console.log('Cleaning up GPS watch');
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [gpsCurrentStation, gpsNextStation]);
-
-  // Separate effect to update next station when current station or destination changes
-  useEffect(() => {
-    if (gpsCurrentStation && destination) {
-      const nextStation = determineNextStation(gpsCurrentStation.id, destination.id);
-      console.log('Next station determined:', nextStation?.name || 'None (at destination)');
-      setGpsNextStation(nextStation);
-      setGpsProgress(0); // Reset progress when stations change
-    } else {
-      setGpsNextStation(null);
-      setGpsProgress(0);
-    }
-  }, [gpsCurrentStation, destination]);
+  }, [findNearestStation, calculateDistance, gpsCurrentStation, gpsNextStation]);
 
   return {
     userLocation,
