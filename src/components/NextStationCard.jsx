@@ -1,6 +1,8 @@
 import { Navigation } from 'lucide-react';
 
 const NextStationCard = ({ nextStation, progress, theme }) => (
+  <>
+  
   <section className={`${theme.card} ${theme.cardBorder} border rounded-2xl p-6 shadow-sm`}>
     <div className="flex items-center gap-3 mb-4">
       <div className="bg-emerald-500/10 p-2 rounded-lg">
@@ -27,5 +29,6 @@ const NextStationCard = ({ nextStation, progress, theme }) => (
       </div>
     )}
   </section>
+  </>
 );
 export default NextStationCard;
