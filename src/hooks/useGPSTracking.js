@@ -92,12 +92,12 @@ const useGPSTracking = (destination) => {
             gpsCurrentStation.lat, 
             gpsCurrentStation.lng
           );
-          const distToNext = calculateDistance(
+         /*  const distToNext = calculateDistance(
             latitude, 
             longitude, 
             gpsNextStation.lat, 
             gpsNextStation.lng
-          );
+          ); */
           const totalDist = calculateDistance(
             gpsCurrentStation.lat, 
             gpsCurrentStation.lng, 
@@ -111,7 +111,7 @@ const useGPSTracking = (destination) => {
         }
         
         setLocationError('');
-        
+
       },
       (error) => {
         console.error('GPS Error:', error);
