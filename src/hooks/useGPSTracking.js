@@ -111,6 +111,7 @@ const useGPSTracking = (destination) => {
         }
         
         setLocationError('');
+        
       },
       (error) => {
         console.error('GPS Error:', error);
