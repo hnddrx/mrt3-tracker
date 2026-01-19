@@ -1,13 +1,22 @@
 import { MapPin } from 'lucide-react';
 
-const CurrentStationCard = ({ currentStation, destination, stationsRemaining, direction, theme }) => (
+const CurrentStationCard = ({
+  currentStation,
+  destination,
+  stationsRemaining,
+  direction,
+  theme,
+  lineColor = '#1e40af' // default color if not provided
+}) => (
   <section className={`${theme.card} ${theme.cardBorder} border rounded-2xl p-6 shadow-sm`}>
     <div className="flex items-center gap-3 mb-4">
-      <div className="bg-blue-500/10 p-2 rounded-lg">
-        <MapPin className="text-blue-500" size={24} />
+      <div className="p-2 rounded-lg" style={{ backgroundColor: `${lineColor}20` /* 20 for ~10% opacity */ }}>
+        <MapPin size={24} style={{ color: lineColor }} />
       </div>
       <div>
-        <h2 className="text-sm font-semibold text-blue-500 uppercase tracking-wide">Current Station</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: lineColor }}>
+          Current Station
+        </h2>
         {destination && (
           <p className={`text-xs ${theme.textMuted} mt-0.5`}>
             {direction} • {stationsRemaining} stop{stationsRemaining !== 1 ? 's' : ''} remaining
@@ -20,4 +29,5 @@ const CurrentStationCard = ({ currentStation, destination, stationsRemaining, di
     </h3>
   </section>
 );
+
 export default CurrentStationCard;

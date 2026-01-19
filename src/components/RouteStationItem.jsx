@@ -1,8 +1,7 @@
-import { MRT3_STATIONS } from '../data/mrt3Stations';
-
 export default function RouteStationItem({
   station,
   index,
+  stations = [],          // <-- full stations array passed from RouteMap
   currentStation,
   destination,
   direction,
@@ -12,8 +11,8 @@ export default function RouteStationItem({
   const isCurrent = currentStation?.id === station.id;
   const isDestination = destination?.id === station.id;
 
-  const currentIndex = MRT3_STATIONS.findIndex(s => s.id === currentStation?.id);
-  const destIndex = MRT3_STATIONS.findIndex(s => s.id === destination?.id);
+  const currentIndex = stations.findIndex(s => s.id === currentStation?.id);
+  const destIndex = stations.findIndex(s => s.id === destination?.id);
 
   const isOnRoute =
     currentStation &&
@@ -27,10 +26,10 @@ export default function RouteStationItem({
         <div
           className={`
             w-4 h-4 rounded-full border-2
-            ${isCurrent && 'bg-blue-500 border-blue-500'}
-            ${isDestination && 'bg-purple-500 border-purple-500'}
-            ${!isCurrent && !isDestination && isOnRoute && theme.routeLine}
-            ${!isCurrent && !isDestination && !isOnRoute && theme.stationBorder}
+            ${isCurrent ? 'bg-blue-500 border-blue-500' : ''}
+            ${isDestination ? 'bg-purple-500 border-purple-500' : ''}
+            ${!isCurrent && !isDestination && isOnRoute ? theme.routeLine : ''}
+            ${!isCurrent && !isDestination && !isOnRoute ? theme.stationBorder : ''}
           `}
         />
         {!isLast && (
@@ -45,9 +44,9 @@ export default function RouteStationItem({
       <div
         className={`
           flex-1
-          ${isCurrent && 'font-bold text-blue-500'}
-          ${isDestination && 'font-semibold text-purple-500'}
-          ${!isCurrent && !isDestination && theme.textMuted}
+          ${isCurrent ? 'font-bold text-blue-500' : ''}
+          ${isDestination ? 'font-semibold text-purple-500' : ''}
+          ${!isCurrent && !isDestination ? theme.textMuted : ''}
         `}
       >
         <p>{station.name}</p>
