@@ -1,4 +1,4 @@
-import { Navigation, Moon, Sun, Share2 } from 'lucide-react';
+import { Navigation, Moon, Sun } from 'lucide-react';
 import ShareLocationButton from './ShareLocationButton'; // import your existing component
 
 const Header = ({ isDarkMode, onToggleTheme, theme, userLocation }) => (
