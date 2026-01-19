@@ -8,7 +8,7 @@ import { EDSA_CAROUSEL_STATIONS } from './data/edsaCarouselStation';
 
 import Header from './components/Header';
 import GPSStatusBar from './components/GPSStatusBar';
-import  ShareLocationButton from './components/ShareLocationButton';
+
 import Notification from './components/Notification';
 import DestinationSelector from './components/DestinationSelector';
 import CurrentStationCard from './components/CurrentStationCard';
