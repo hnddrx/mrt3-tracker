@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { MRT3_STATIONS } from '../data/mrt3Stations';
 
-const useGPSTracking = (destination) => {
+const useGPSTracking = (destination, stations = []) => {
   const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState('');
   const [isTracking, setIsTracking] = useState(false);
@@ -13,31 +12,27 @@ const useGPSTracking = (destination) => {
   const gpsNextStationRef = useRef(null);
 
   // Keep refs in sync
-  useEffect(() => {
-    gpsCurrentStationRef.current = gpsCurrentStation;
-  }, [gpsCurrentStation]);
+  useEffect(() => { gpsCurrentStationRef.current = gpsCurrentStation; }, [gpsCurrentStation]);
+  useEffect(() => { gpsNextStationRef.current = gpsNextStation; }, [gpsNextStation]);
 
-  useEffect(() => {
-    gpsNextStationRef.current = gpsNextStation;
-  }, [gpsNextStation]);
-
+  // Haversine distance
   const calculateDistance = useCallback((lat1, lon1, lat2, lon2) => {
-    const R = 6371;
+    const R = 6371; // km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
+    const a = Math.sin(dLat/2)**2 +
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
+      Math.sin(dLon/2)**2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   }, []);
 
+  // Find nearest station
   const findNearestStation = useCallback((lat, lng) => {
     let nearest = null;
     let minDistance = Infinity;
 
-    MRT3_STATIONS.forEach(station => {
+    stations.forEach(station => {
       const distance = calculateDistance(lat, lng, station.lat, station.lng);
       if (distance < minDistance) {
         minDistance = distance;
@@ -46,25 +41,18 @@ const useGPSTracking = (destination) => {
     });
 
     return { station: nearest, distance: minDistance };
-  }, [calculateDistance]);
+  }, [stations, calculateDistance]);
 
+  // Determine next station
   const determineNextStation = useCallback((currentStationId, destinationId) => {
     if (!currentStationId || !destinationId) return null;
+    const currentIndex = stations.findIndex(s => s.id === currentStationId);
+    const destIndex = stations.findIndex(s => s.id === destinationId);
+    if (currentIndex === -1 || destIndex === -1 || currentIndex === destIndex) return null;
+    return currentIndex < destIndex ? stations[currentIndex + 1] : stations[currentIndex - 1];
+  }, [stations]);
 
-    const currentIndex = MRT3_STATIONS.findIndex(s => s.id === currentStationId);
-    const destIndex = MRT3_STATIONS.findIndex(s => s.id === destinationId);
-
-    if (currentIndex === -1 || destIndex === -1) return null;
-    if (currentIndex === destIndex) return null;
-
-    if (currentIndex < destIndex) {
-      return MRT3_STATIONS[currentIndex + 1];
-    } else {
-      return MRT3_STATIONS[currentIndex - 1];
-    }
-  }, []);
-
-  // Update next station when current station or destination changes
+  // Whenever current station or destination changes, update next station immediately
   useEffect(() => {
     if (gpsCurrentStation && destination) {
       const nextStation = determineNextStation(gpsCurrentStation.id, destination.id);
@@ -75,6 +63,24 @@ const useGPSTracking = (destination) => {
       setGpsProgress(0);
     }
   }, [gpsCurrentStation, destination, determineNextStation]);
+
+  // Fetch initial current station if userLocation exists
+  useEffect(() => {
+    if (userLocation && stations.length) {
+      const { station } = findNearestStation(userLocation.lat, userLocation.lng);
+      setGpsCurrentStation(station);
+
+      if (destination) {
+        const nextStation = determineNextStation(station.id, destination.id);
+        setGpsNextStation(nextStation);
+        setGpsProgress(0);
+      }
+    } else {
+      setGpsCurrentStation(null);
+      setGpsNextStation(null);
+      setGpsProgress(0);
+    }
+  }, [stations, userLocation, destination, findNearestStation, determineNextStation]);
 
   // GPS tracking effect
   useEffect(() => {
@@ -89,58 +95,34 @@ const useGPSTracking = (destination) => {
       (position) => {
         const { latitude, longitude } = position.coords;
         setUserLocation({ lat: latitude, lng: longitude });
-        
+
         const { station, distance } = findNearestStation(latitude, longitude);
-        
-        // Update current station if within 0.5km and different from current
+
         if (distance < 0.5) {
-          setGpsCurrentStation(prev => {
-            if (!prev || prev.id !== station.id) {
-              return station;
-            }
-            return prev;
-          });
+          setGpsCurrentStation(prev => (!prev || prev.id !== station.id ? station : prev));
         }
-        
-        // Calculate progress using refs to avoid dependency issues
+
         const currentStation = gpsCurrentStationRef.current;
         const nextStation = gpsNextStationRef.current;
-        
+
         if (currentStation && nextStation) {
-          const distToCurrent = calculateDistance(
-            latitude, 
-            longitude, 
-            currentStation.lat, 
-            currentStation.lng
-          );
-          const totalDist = calculateDistance(
-            currentStation.lat, 
-            currentStation.lng, 
-            nextStation.lat, 
-            nextStation.lng
-          );
-          
+          const distToCurrent = calculateDistance(latitude, longitude, currentStation.lat, currentStation.lng);
+          const totalDist = calculateDistance(currentStation.lat, currentStation.lng, nextStation.lat, nextStation.lng);
           const progressPercent = (distToCurrent / totalDist) * 100;
           setGpsProgress(Math.min(Math.max(progressPercent, 0), 100));
         }
-        
+
         setLocationError('');
       },
       (error) => {
         setLocationError(`GPS Error: ${error.message}`);
         setIsTracking(false);
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
-      }
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
 
-    return () => {
-      navigator.geolocation.clearWatch(watchId);
-    };
-  }, [findNearestStation, calculateDistance]); // Added missing dependency
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [findNearestStation, calculateDistance]);
 
   return {
     userLocation,
